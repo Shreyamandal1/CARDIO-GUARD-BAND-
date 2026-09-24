@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CardioGuard Band</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#070b0a;
+    --panel:#0e1613;
+    --panel-2:#121c18;
+    --line:#1c2925;
+    --ecg:#3dffa6;
+    --spo2:#4fd8e0;
+    --gsr:#ffb454;
+    --alert:#ff4757;
+    --text:#e8f5ee;
+    --text-dim:#7a938a;
+    --text-dimmer:#4c635c;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:#000;
+    font-family:'Inter',sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:40px 20px;
+  }
+  .stage{ display:flex; flex-direction:column; align-items:center; gap:18px; }
+  .stage-label{ color:#3a4a44; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.2em; text-transform:uppercase; }
+
+  .phone{
+    width:390px;
+    height:820px;
+    background:#050a08;
+    border-radius:52px;
+    border:1px solid #1a2420;
+    box-shadow: 0 0 0 10px #0a100d, 0 40px 80px -20px rgba(0,0,0,.8), inset 0 0 40px rgba(61,255,166,.02);
+    padding:14px;
+    position:relative;
+  }
+  .screen{
+    width:100%; height:100%;
+    background:var(--bg);
+    border-radius:38px;
+    overflow:hidden;
+    position:relative;
+    display:flex; flex-direction:column;
+  }
+  .notch{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:120px; height:26px; background:#050a08; border-radius:0 0 18px 18px; z-index:50;
+  }
+
+  .statusbar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 26px 6px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);
+  }
+
+  .topbar{
+    padding:6px 22px 14px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{ display:flex; align-items:center; gap:9px; }
+  .brand-mark{
+    width:26px; height:26px; border-radius:8px;
+    background:radial-gradient(circle at 30% 30%, #58ffb8, #14a466);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 14px rgba(61,255,166,.35);
+  }
+  .brand-mark svg{ width:14px; height:14px; }
+  .brand-name{ font-weight:800; font-size:15px; letter-spacing:-.01em; }
+  .brand-name span{ color:var(--ecg); }
+  .status-pill{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.06em;
+    color:var(--ecg); background:rgba(61,255,166,.08); border:1px solid rgba(61,255,166,.25);
+    padding:5px 10px; border-radius:20px; display:flex; align-items:center; gap:6px;
+  }
+  .dot{ width:6px; height:6px; border-radius:50%; background:var(--ecg); box-shadow:0 0 8px var(--ecg); animation:pulse-dot 1.6s infinite; }
+  @keyframes pulse-dot{ 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .content{ flex:1; overflow-y:auto; padding:4px 22px 100px; }
+  .content::-webkit-scrollbar{ display:none; }
+
+  /* Waveform hero */
+  .wave-card{
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line); border-radius:20px; padding:18px 18px 14px; margin-top:6px;
+  }
+  .wave-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px; }
+  .wave-title{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.14em; color:var(--text-dim); text-transform:uppercase; }
+  .bpm-read{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; color:var(--ecg); }
+  canvas{ width:100%; height:86px; display:block; margin:4px 0 2px; }
+  .wave-foot{ display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-dimmer); }
+
+  /* Vitals grid */
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+  .vital{
+    background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:15px;
+    position:relative; overflow:hidden;
+  }
+  .vital::after{
+    content:''; position:absolute; top:0; left:0; width:3px; height:100%;
+  }
+  .vital.hr::after{ background:var(--ecg); }
+  .vital.spo2::after{ background:var(--spo2); }
+  .vital.rhythm::after{ background:var(--ecg); }
+  .vital.gsr::after{ background:var(--gsr); }
+  .v-label{ font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.1em; color:var(--text-dim); text-transform:uppercase; margin-bottom:8px; }
+  .v-value{ font-family:'IBM Plex Mono',monospace; font-size:26px; font-weight:600; line-height:1; }
+  .v-unit{ font-size:12px; color:var(--text-dim); font-weight:400; margin-left:3px; }
+  .v-sub{ font-size:11px; color:var(--text-dimmer); margin-top:6px; }
+  .v-ok{ color:var(--ecg); }
+  .v-warn{ color:var(--gsr); }
+
+  /* risk engine card */
+  .risk-card{
+    margin-top:14px; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:16px 17px;
+  }
+  .risk-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .risk-title{ font-size:13px; font-weight:600; }
+  .risk-badge{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ecg); background:rgba(61,255,166,.08); padding:4px 9px; border-radius:20px; border:1px solid rgba(61,255,166,.25); }
+  .risk-bar{ height:6px; background:#1a2420; border-radius:4px; overflow:hidden; margin-bottom:6px; }
+  .risk-fill{ height:100%; width:12%; background:linear-gradient(90deg,var(--ecg),var(--spo2)); border-radius:4px; transition:width .6s ease; }
+  .risk-note{ font-size:11px; color:var(--text-dim); line-height:1.5; }
+
+  .sim-btn{
+    margin-top:14px; width:100%; padding:13px; border-radius:14px; border:1px dashed #3a4a44;
+    background:transparent; color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:11.5px;
+    letter-spacing:.06em; cursor:pointer; text-transform:uppercase;
+  }
+  .sim-btn:hover{ border-color:var(--gsr); color:var(--gsr); }
+
+  /* Alert screen */
+  .alert-screen{ display:flex; flex-direction:column; align-items:center; text-align:center; padding-top:18px; }
+  .alert-ring{
+    width:150px; height:150px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle,rgba(255,71,87,.14),transparent 70%);
+    border:2px solid rgba(255,71,87,.4); margin-bottom:22px; position:relative;
+  }
+  .alert-ring::before{
+    content:''; position:absolute; inset:-2px; border-radius:50%; border:2px solid var(--alert);
+    animation:ring-pulse 1.4s infinite;
+  }
+  @keyframes ring-pulse{ 0%{ transform:scale(1); opacity:.8 } 100%{ transform:scale(1.5); opacity:0 } }
+  .alert-icon{ font-size:44px; }
+  .alert-title{ font-size:20px; font-weight:800; color:var(--alert); margin-bottom:6px; }
+  .alert-sub{ font-size:12.5px; color:var(--text-dim); max-width:260px; line-height:1.6; margin-bottom:22px; }
+  .signal-row{ display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap; justify-content:center; }
+  .signal-chip{ font-family:'IBM Plex Mono',monospace; font-size:10px; background:rgba(255,71,87,.1); border:1px solid rgba(255,71,87,.35); color:#ff8891; padding:6px 10px; border-radius:20px; }
+  .action-btn{ width:100%; padding:15px; border-radius:16px; border:none; font-weight:700; font-size:13.5px; margin-bottom:10px; cursor:pointer; font-family:'Inter',sans-serif; }
+  .action-primary{ background:var(--alert); color:#fff; }
+  .action-secondary{ background:var(--panel); color:var(--text); border:1px solid var(--line); }
+  .eta{ margin-top:16px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dimmer); }
+
+  /* contacts */
+  .sec-label{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.14em; color:var(--text-dim); text-transform:uppercase; margin:18px 0 10px; }
+  .contact{ display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:12px 14px; margin-bottom:10px; }
+  .avatar{ width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,#1c2925,#0e1613); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ecg); font-weight:600; }
+  .c-info{ flex:1; }
+  .c-name{ font-size:13.5px; font-weight:600; }
+  .c-role{ font-size:11px; color:var(--text-dim); }
+  .c-status{ width:8px; height:8px; border-radius:50%; background:var(--ecg); box-shadow:0 0 6px var(--ecg); }
+
+  .loc-card{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:10px; }
+  .loc-grid{ height:110px; border-radius:12px; background:
+      linear-gradient(var(--line) 1px, transparent 1px) 0 0/20px 20px,
+      linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0/20px 20px,
+      #0b1310;
+    position:relative; overflow:hidden; }
+  .loc-pin{ position:absolute; top:48%; left:56%; width:12px; height:12px; border-radius:50%; background:var(--alert); box-shadow:0 0 0 6px rgba(255,71,87,.2); }
+  .loc-text{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-dim); margin-top:10px; }
+
+  /* tab bar */
+  .tabbar{
+    position:absolute; bottom:0; left:0; right:0; height:82px;
+    background:rgba(7,11,10,.92); backdrop-filter:blur(10px);
+    border-top:1px solid var(--line); display:flex; padding-bottom:18px;
+  }
+  .tab{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; cursor:pointer; color:var(--text-dimmer); }
+  .tab.active{ color:var(--ecg); }
+  .tab svg{ width:20px; height:20px; }
+  .tab-label{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.04em; text-transform:uppercase; }
+
+  .hidden{ display:none; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="stage-label">CardioGuard Band — Companion App</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen">
+
+      <div class="statusbar">
+        <span>9:41</span>
+        <span>BAND · 78%</span>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div id="view-dashboard">
+        <div class="topbar">
+          <div class="brand">
+            <div class="brand-mark">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="#04150d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="brand-name">Cardio<span>Guard</span></div>
+          </div>
+          <div class="status-pill"><span class="dot"></span>MONITORING</div>
+        </div>
+
+        <div class="content">
+          <div class="wave-card">
+            <div class="wave-head">
+              <span class="wave-title">PPG Waveform · Live</span>
+              <span class="bpm-read"><span id="bpmVal">72</span> BPM</span>
+            </div>
+            <canvas id="ecgCanvas"></canvas>
+            <div class="wave-foot"><span>Lead: Wrist PPG</span><span>Sample rate: 100 Hz</span></div>
+          </div>
+
+          <div class="grid">
+            <div class="vital hr">
+              <div class="v-label">Heart Rate</div>
+              <div class="v-value v-ok">72<span class="v-unit">bpm</span></div>
+              <div class="v-sub">Normal range</div>
+            </div>
+            <div class="vital spo2">
+              <div class="v-label">SpO2</div>
+              <div class="v-value v-ok">98<span class="v-unit">%</span></div>
+              <div class="v-sub">Oxygen saturation</div>
+            </div>
+            <div class="vital rhythm">
+              <div class="v-label">Rhythm</div>
+              <div class="v-value v-ok">Regular</div>
+              <div class="v-sub">HRV within baseline</div>
+            </div>
+            <div class="vital gsr">
+              <div class="v-label">GSR</div>
+              <div class="v-value v-ok">2.1<span class="v-unit">μS</span></div>
+              <div class="v-sub">Skin conductance</div>
+            </div>
+          </div>
+
+          <div class="risk-card">
+            <div class="risk-head">
+              <div class="risk-title">Cardiac Risk Engine</div>
+              <div class="risk-badge">LOW</div>
+            </div>
+            <div class="risk-bar"><div class="risk-fill" id="riskFill"></div></div>
+            <div class="risk-note" id="riskNote">4-signal correlation nominal. No pre-arrest pattern detected in the last 5 min window.</div>
+          </div>
+
+          <button class="sim-btn" onclick="triggerAlert()">▸ Simulate Risk Event</button>
+        </div>
+      </div>
+
+      <!-- ALERT -->
+      <div id="view-alert" class="hidden">
+        <div class="topbar">
+          <div class="brand">
+            <div class="brand-mark" style="background:radial-gradient(circle at 30% 30%,#ff8891,#c0202f)">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v10m0 4h.01" stroke="#210506" stroke-width="2.5" stroke-linecap="round"/></svg>
+            </div>
+            <div class="brand-name">Cardio<span style="color:var(--alert)">Guard</span></div>
+          </div>
+        </div>
+        <div class="content alert-screen">
+          <div class="alert-ring"><span class="alert-icon">⚠️</span></div>
+          <div class="alert-title">Risk Pattern Detected</div>
+          <div class="alert-sub">SpO2 drop + irregular rhythm + GSR spike matched a pre-arrest signature. Emergency contacts are being notified with your live location.</div>
+          <div class="signal-row">
+            <span class="signal-chip">SpO2 ↓ 89%</span>
+            <span class="signal-chip">Rhythm irregular</span>
+            <span class="signal-chip">GSR spike +310%</span>
+          </div>
+          <button class="action-btn action-primary" onclick="resolveAlert()">I'm OK — Dismiss Alert</button>
+          <button class="action-btn action-secondary" onclick="showTab('contacts')">Call Emergency Contact</button>
+          <div class="eta">Auto-escalation to contacts in <span id="eta">00:14</span></div>
+        </div>
+      </div>
+
+      <!-- CONTACTS -->
+      <div id="view-contacts" class="hidden">
+        <div class="topbar">
+          <div class="brand-name" style="font-size:17px;">Emergency Contacts</div>
+        </div>
+        <div class="content">
+          <div class="sec-label">Notified on alert</div>
+          <div class="contact">
+            <div class="avatar">RS</div>
+            <div class="c-info"><div class="c-name">Ravi S.</div><div class="c-role">Primary · Family</div></div>
+            <div class="c-status"></div>
+          </div>
+          <div class="contact">
+            <div class="avatar">DP</div>
+            <div class="c-info"><div class="c-name">Dr. Priya</div><div class="c-role">Cardiologist</div></div>
+            <div class="c-status"></div>
+          </div>
+          <div class="contact">
+            <div class="avatar">EM</div>
+            <div class="c-info"><div class="c-name">Emergency Services</div><div class="c-role">Auto-dial · 108</div></div>
+            <div class="c-status"></div>
+          </div>
+
+          <div class="sec-label">Live location shared on alert</div>
+          <div class="loc-card">
+            <div class="loc-grid"><div class="loc-pin"></div></div>
+            <div class="loc-text">GPS lock · accuracy ±6m · last synced 2s ago</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab active" data-tab="dashboard" onclick="showTab('dashboard')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+          <div class="tab-label">Vitals</div>
+        </div>
+        <div class="tab" data-tab="alert" onclick="showTab('alert')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+          <div class="tab-label">Alerts</div>
+        </div>
+        <div class="tab" data-tab="contacts" onclick="showTab('contacts')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div class="tab-label">Contacts</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // Tab switching
+  function showTab(name){
+    ['dashboard','alert','contacts'].forEach(v=>{
+      document.getElementById('view-'+v).classList.toggle('hidden', v!==name);
+    });
+    document.querySelectorAll('.tab').forEach(t=>{
+      t.classList.toggle('active', t.dataset.tab===name);
+    });
+  }
+
+  function triggerAlert(){ showTab('alert'); startCountdown(); }
+  function resolveAlert(){ showTab('dashboard'); }
+
+  let etaSeconds = 14, etaInterval;
+  function startCountdown(){
+    etaSeconds = 14;
+    clearInterval(etaInterval);
+    etaInterval = setInterval(()=>{
+      etaSeconds = Math.max(0, etaSeconds-1);
+      const m = String(Math.floor(etaSeconds/60)).padStart(2,'0');
+      const s = String(etaSeconds%60).padStart(2,'0');
+      document.getElementById('eta').textContent = m+':'+s;
+      if(etaSeconds===0) clearInterval(etaInterval);
+    },1000);
+  }
+
+  // Waveform animation
+  const canvas = document.getElementById('ecgCanvas');
+  const ctx = canvas.getContext('2d');
+  function resize(){
+    canvas.width = canvas.clientWidth * devicePixelRatio;
+    canvas.height = canvas.clientHeight * devicePixelRatio;
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+  }
+  let dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = canvas.clientHeight * dpr;
+  ctx.scale(dpr,dpr);
+
+  let t = 0;
+  const points = [];
+  const W = () => canvas.clientWidth;
+  const H = () => canvas.clientHeight;
+
+  function ppgValue(x){
+    // simulate a PPG-like pulse waveform
+    const cycle = 34; // px per beat
+    const phase = (x % cycle) / cycle;
+    let v = 0;
+    if(phase < 0.12) v = Math.sin(phase/0.12 * Math.PI) * 1.0;
+    else if(phase < 0.22) v = Math.sin((phase-0.12)/0.10 * Math.PI) * -0.35;
+    else v = Math.sin((phase-0.22)/0.78 * Math.PI) * 0.12;
+    return v;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W(),H());
+    ctx.beginPath();
+    ctx.strokeStyle = '#3dffa6';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(61,255,166,.6)';
+    ctx.shadowBlur = 6;
+    const midY = H()/2;
+    for(let x=0; x<=W(); x++){
+      const val = ppgValue(x + t);
+      const y = midY - val * (H()*0.36);
+      if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    t += 2.2;
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // subtle live vital jitter
+  setInterval(()=>{
+    document.getElementById('bpmVal').textContent = 70 + Math.round(Math.random()*5);
+  }, 1800);
+</script>
+
+</body>
+</html>
